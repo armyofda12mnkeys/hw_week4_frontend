@@ -35,11 +35,14 @@ export class AppComponent {
   votePower: number | undefined = 0;
   ballotContract: ethers.Contract | undefined;
   ballotContractAddress: string | undefined;
-
+  proposals: { name: string, voteCount: number }[] = [];
+  winnerName: string | undefined;
+  winningProposal: number | undefined; 
+  
   constructor(private http: HttpClient){}
 
   async createWallet() {
-    this.provider = ethers.getDefaultProvider("goerli", {alchemy: ALCHEMY_API_KEY, etherscan: ETHERSCAN_API_KEY});
+    this.provider = new ethers.providers.AlchemyProvider("goerli", ALCHEMY_API_KEY); //ethers.getDefaultProvider("goerli", {alchemy: ALCHEMY_API_KEY, etherscan: ETHERSCAN_API_KEY});
     this.wallet = ethers.Wallet.createRandom().connect(this.provider); //
     //console.log("create random wallet, pub key: "+ this.wallet.publicKey); //
     //console.log("create random wallet, priv key: "+ this.wallet.privateKey); //if you want to re-import later
@@ -54,7 +57,11 @@ export class AppComponent {
     this.ballotContractAddress = BALLOT_CONTRACT_ADDRESS;
     this.tokenContract = new ethers.Contract( ERC20_VOTES_ADDRESS, tokenJsonInterface.abi, this.wallet); //note: for these this.provider works for read-only calls, but write calls like delegate need a real signer
     this.ballotContract = new ethers.Contract( BALLOT_CONTRACT_ADDRESS , tokenizedBallotJsonInterface.abi, this.wallet); //could be hardcoded vs returning from API
+    
+    //this.proposals = 
 
+    this.updateBlockchainInfo();
+    setInterval( this.updateBlockchainInfo.bind(this), 5000);
 
     /*
     //testing out this method to loop over a solidity array until it goes out-of-bounds error vs adding a length param to the contract
@@ -77,11 +84,9 @@ export class AppComponent {
     //const proposals = this.tokenContract['proposals']().then((ans:string)=>{
     //  console.log(ans);
     //});
-    const proposal = await this.tokenContract['proposals'][0].name;
-    console.log(proposal);
-
-    this.updateBlockchainInfo();
-    setInterval( this.updateBlockchainInfo.bind(this), 5000);
+    //const proposal = await this.tokenContract['proposals'][0]; //.name;
+    //console.log(proposal);
+    //console.log( 'proposal#1:'+ ethers.utils.parseBytes32String( proposal) );
   }
 
   //TODO: not sure how to get this to work
@@ -107,16 +112,39 @@ export class AppComponent {
     this.updateBlockchainInfo();
     setInterval( this.updateBlockchainInfo.bind(this), 5000);
   }
-  updateBlockchainInfo() {
-    console.log('update');
+  importWallet(private_key: string){
+    console.log('private_key from UI: '+ private_key);
+    this.provider = new ethers.providers.AlchemyProvider("goerli", ALCHEMY_API_KEY); //ethers.getDefaultProvider("goerli", {alchemy: ALCHEMY_API_KEY, etherscan: ETHERSCAN_API_KEY});
+    const wallet = new ethers.Wallet( private_key ?? "");
+    const signer = wallet.connect(this.provider);
+    this.wallet = signer;
+    //console.log("create random wallet, pub key: "+ this.wallet.publicKey); //
+    //console.log("create random wallet, priv key: "+ this.wallet.privateKey); //if you want to re-import later
+    /*this.http.get<{result: string}>("http://localhost:3000/token-address").subscribe((ans)=>{//not a Promise, returns Observable 
+      console.log(ans.result);
+      this.tokenContractAddress = ans.result;
+
+      this.updateBlockchainInfo();
+      setInterval( this.updateBlockchainInfo.bind(this), 5000);
+    });*/
+    this.tokenContractAddress = ERC20_VOTES_ADDRESS;
+    this.ballotContractAddress = BALLOT_CONTRACT_ADDRESS;
+    this.tokenContract = new ethers.Contract( ERC20_VOTES_ADDRESS, tokenJsonInterface.abi, signer); //note: for these this.provider works for read-only calls, but write calls like delegate need a real signer
+    this.ballotContract = new ethers.Contract( BALLOT_CONTRACT_ADDRESS , tokenizedBallotJsonInterface.abi, signer); //could be hardcoded vs returning from API
+
+    this.updateBlockchainInfo();
+    setInterval( this.updateBlockchainInfo.bind(this), 5000);
+  }
+  async updateBlockchainInfo() {
+    console.log('updateBlockchainInfo');
     //console.log(this.tokenContractAddress);
     //console.log(this.wallet);
     if( this.tokenContract && this.wallet) {
       //console.log('inside update');
       //this.tokenContract = new ethers.Contract(this.tokenContractAddress, tokenJsonInterface.abi, this.provider);
       this.tokenContract["balanceOf"](this.wallet.address).then((tokenBalanceBigNumber:BigNumber)=>{
-        console.log( tokenBalanceBigNumber );
-        console.log( ethers.utils.formatEther(tokenBalanceBigNumber) );
+        //console.log( tokenBalanceBigNumber );
+        //console.log( ethers.utils.formatEther(tokenBalanceBigNumber) );
         this.tokenBalance = parseFloat( ethers.utils.formatEther(tokenBalanceBigNumber) );
       });
       this.tokenContract["getVotes"](this.wallet.address).then((votePowerBigNumber:BigNumber)=>{
@@ -124,9 +152,12 @@ export class AppComponent {
       });
       this.wallet.getBalance().then( (balanceBigNumber) => {
         this.etherBalance = parseFloat( ethers.utils.formatEther(balanceBigNumber) );
-        console.log( balanceBigNumber );
-        console.log( ethers.utils.formatEther(balanceBigNumber) );
+        //console.log( balanceBigNumber );
+        //console.log( ethers.utils.formatEther(balanceBigNumber) );
       });
+      this.proposals = await this.getProposals();
+      this.winnerName = await this.getWinnerName();
+      this.winningProposal = await this.getWinningProposal();
     }
   }
   vote(voteId: number|string, votePowerToUse: number|string){ //well it comes over as a string
@@ -135,12 +166,15 @@ export class AppComponent {
     if (typeof votePowerToUse == 'string') votePowerToUse = parseInt(votePowerToUse);
 
     console.log("voting for proposal:"+ voteId + "with power: "+ votePowerToUse);
+    
+    //*
     if( this.ballotContract && this.wallet) {    
       //TODO: take this.ballotContract['vote'](voteId) //need to import the ballotJson at the top to do this
       this.ballotContract["vote"]( voteId, votePowerToUse ).then(()=>{
         console.log('is voting done?');
       });
     }
+    //*/
   }
   async delegate(){
     //if(this.tokenContractAddress) {
@@ -161,14 +195,60 @@ export class AppComponent {
       return ans;
     });
   }
-
-  importWallet(){
-    //TODO
+  
+  async viewProposals(numberOfProposals: number) {
+    //let ballot:unknown = this.ballotContract;
+    if(this.ballotContract) {
+      const proposals: { name: string, voteCount: number }[] = [];      
+      let proposals_blockchain = await this.ballotContract['proposals'];//get it once
+      for (let i = 0; i <= numberOfProposals - 1; i++) {        
+        let proposalNameI = proposals_blockchain(i);
+        let proposalNameString = ethers.utils.parseBytes32String(proposalNameI.name);
+        let proposalVoteCount = proposalNameI.voteCount;
+        proposals.push({"name": proposalNameString, "voteCount": parseInt(proposalVoteCount) });
+      }
+      return proposals;
+    }
+    return [];
   }
 
-  winningProposal(){
-    //TODO
+
+  async getProposals() {
+    //const proposals = await this.viewProposals(3);
+    //console.log(proposals);
+
+    const proposals = [];
+    if(this.ballotContract) { //try manual way as well
+      let proposal1 = await this.ballotContract['proposals'](0);
+      let proposal2 = await this.ballotContract['proposals'](1);
+      let proposal3 = await this.ballotContract['proposals'](2);
+      console.log('proposalName: '+ ethers.utils.parseBytes32String(proposal1.name) +', voteCount: '+ proposal1.voteCount + ", "+ ethers.utils.formatEther( proposal1.voteCount) );
+      console.log('proposalName: '+ ethers.utils.parseBytes32String(proposal2.name) +', voteCount: '+ proposal2.voteCount + ", "+ ethers.utils.formatEther( proposal2.voteCount) );
+      console.log('proposalName: '+ ethers.utils.parseBytes32String(proposal3.name) +', voteCount: '+ proposal3.voteCount + ", "+ ethers.utils.formatEther( proposal3.voteCount) );
+      proposals.push({"name": ethers.utils.parseBytes32String(proposal1.name), "voteCount": parseInt(proposal1.voteCount) });
+      proposals.push({"name": ethers.utils.parseBytes32String(proposal2.name), "voteCount": parseInt(proposal2.voteCount) });
+      proposals.push({"name": ethers.utils.parseBytes32String(proposal3.name), "voteCount": parseInt(proposal3.voteCount) });
+    }
+    return proposals;
   }
+
+
+  async getWinnerName(){
+    if(this.ballotContract){
+      let winnerName = await this.ballotContract['winnerName']();
+      return ethers.utils.parseBytes32String(winnerName);
+    } 
+    return "";
+  }
+  
+  async getWinningProposal(){
+    if(this.ballotContract){
+      let winningProposal = await this.ballotContract['winningProposal']();
+      return winningProposal;
+    } 
+    return "";
+  }
+  
 
   /*
   title = 'my-fe-app';

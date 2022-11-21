@@ -31,11 +31,15 @@
         <button
           type="button"
           class="btn btn-info btn-lg px-4 gap-3"
-          disabled
-          (click)="importWallet()"
+          (click)="importWallet(privateKeyWallet.value)"
         >
           Import a Wallet
         </button>
+        <input
+          #privateKeyWallet
+          type="text"
+          placeholder="...private key here..."
+        />
       </div>
     </div>
     <!--<div *ngIf="xxxconnectedMetaMaskSigner">
@@ -44,6 +48,16 @@
         {{ connectedMetaMaskSigner.getAddress() | async }}
       </p>
     </div>-->
+
+    <div class="bx--row" *ngFor="let obj of proposals">
+      <span class="bx--col-xs-5 bx--col-md-5"> {{ obj.name }} :</span>
+      <span class="bx--col-xs-5 bx--col-md-5">{{ obj.voteCount }} </span>
+    </div>
+    <div>
+      Winner Name (so far): {{ winnerName }} <br />
+      Winning Proposal Index (so far): {{ winningProposal }}
+    </div>
+
     <div *ngIf="wallet">
       <p class="lead mg-4">This is your address: {{ wallet.address }}</p>
       <p class="lead mg-4">
