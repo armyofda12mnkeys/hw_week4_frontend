@@ -33,6 +33,7 @@ export class AppComponent {
   tokenContractAddress: string | undefined;  
   tokenBalance: number | undefined = 0;
   votePower: number | undefined = 0;
+  votingPower: number | undefined = 0;
   ballotContract: ethers.Contract | undefined;
   ballotContractAddress: string | undefined;
   proposals: { name: string, voteCount: number }[] = [];
@@ -139,7 +140,7 @@ export class AppComponent {
     console.log('updateBlockchainInfo');
     //console.log(this.tokenContractAddress);
     //console.log(this.wallet);
-    if( this.tokenContract && this.wallet) {
+    if( this.tokenContract && this.wallet && this.ballotContract) {
       //console.log('inside update');
       //this.tokenContract = new ethers.Contract(this.tokenContractAddress, tokenJsonInterface.abi, this.provider);
       this.tokenContract["balanceOf"](this.wallet.address).then((tokenBalanceBigNumber:BigNumber)=>{
@@ -155,6 +156,11 @@ export class AppComponent {
         //console.log( balanceBigNumber );
         //console.log( ethers.utils.formatEther(balanceBigNumber) );
       });
+      this.ballotContract["votingPower"](this.wallet.address).then((votingPowerBalanceBigNumber:BigNumber)=>{
+        this.votingPower = parseFloat( ethers.utils.formatEther(votingPowerBalanceBigNumber) );
+      });
+
+
       this.proposals = await this.getProposals();
       this.winnerName = await this.getWinnerName();
       this.winningProposal = await this.getWinningProposal();
@@ -162,15 +168,19 @@ export class AppComponent {
   }
   vote(voteId: number|string, votePowerToUse: number|string){ //well it comes over as a string
     //const vote_id_int = parseInt(voteId);
+    console.log(typeof votePowerToUse);
     if (typeof voteId == 'string') voteId = parseInt(voteId);
     if (typeof votePowerToUse == 'string') votePowerToUse = parseInt(votePowerToUse);
+    
+    
+    let eth_vote_power = ethers.utils.parseEther( votePowerToUse.toString() );
 
-    console.log("voting for proposal:"+ voteId + "with power: "+ votePowerToUse);
+    console.log(`voting for proposal: ${voteId} with power:  ${votePowerToUse} aka ( ${eth_vote_power} )`);
     
     //*
     if( this.ballotContract && this.wallet) {    
       //TODO: take this.ballotContract['vote'](voteId) //need to import the ballotJson at the top to do this
-      this.ballotContract["vote"]( voteId, votePowerToUse ).then(()=>{
+      this.ballotContract["vote"]( voteId, eth_vote_power ).then(()=>{
         console.log('is voting done?');
       });
     }
