@@ -9,7 +9,7 @@
 <div class="px-4 py-5 my-5 text-center">
   <h1 class="display-5 fw-bold">My Example Ballot App</h1>
   <div class="col-lg-6 mx-auto">
-    <div *ngIf="!wallet">
+    <div *ngIf="!(wallet || signer)">
       <p class="lead mb-4">Choose your connection method</p>
       <div class="d-grid gap-2 d-sm-flex justify-content-sm-center">
         <button
@@ -42,13 +42,6 @@
         />
       </div>
     </div>
-    <!--<div *ngIf="xxxconnectedMetaMaskSigner">
-      <p class="lead mg-4">
-        This is your metamask address:
-        {{ connectedMetaMaskSigner.getAddress() | async }}
-      </p>
-    </div>-->
-
     <div class="bx--row" *ngFor="let obj of proposals">
       <span class="bx--col-xs-5 bx--col-md-5"> {{ obj.name }} :</span>
       <span class="bx--col-xs-5 bx--col-md-5">{{ obj.voteCount }} </span>
@@ -58,8 +51,8 @@
       Winning Proposal Index (so far): {{ winningProposal }}
     </div>
 
-    <div *ngIf="wallet">
-      <p class="lead mg-4">This is your address: {{ wallet.address }}</p>
+    <div *ngIf="wallet || signer">
+      <p class="lead mg-4">This is your address: {{ walletAddress }}</p>
       <p class="lead mg-4">
         This is the token address: {{ tokenContractAddress }}
       </p>
